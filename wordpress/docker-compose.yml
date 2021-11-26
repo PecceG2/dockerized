@@ -1,0 +1,41 @@
+version: "3"
+
+services:
+  wordpress:
+    image: pecceg2/wordpress-clean:v3
+    container_name: wordpress_app
+    restart: always
+    env_file: .env
+    environment:
+      - WORDPRESS_DB_HOST=$MYSQL_SERVER:$MYSQL_PORT
+      - WORDPRESS_DB_USER=$MYSQL_USER
+      - WORDPRESS_DB_PASSWORD=$MYSQL_PASSWORD
+      - WORDPRESS_DB_NAME=$MYSQL_NAME
+      - WORDPRESS_TABLE_PREFIX=$WORDPRESS_TABLE_PREFIX
+    volumes:
+      - ./data/wordpress:/var/www/html
+    networks:
+      - internal-network
+      - expose-network
+
+  webserver:
+    depends_on:
+      - wordpress
+    container_name: wordpress_web
+    image: nginx:1.19.10
+    restart: always
+    ports:
+      - "10002:80"
+    volumes:
+      - ./data/wordpress:/var/www/html
+      - ./data/nginx-conf:/etc/nginx
+    networks:
+      - internal-network
+      - expose-network
+
+
+networks:
+  internal-network:
+    driver: overlay
+  expose-network:
+    driver: bridge
