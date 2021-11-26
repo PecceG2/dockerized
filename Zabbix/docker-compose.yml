@@ -1,0 +1,84 @@
+version: "3"
+
+services:
+  zabbix_mariadb:
+    image: mariadb
+    container_name: zabbix_mariadb
+    restart: always
+    command: mysqld --character-set-server=utf8 --collation-server=utf8_unicode_ci
+    ports:
+      - "3307:3306"
+    env_file: .env
+    environment:
+      - MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+    networks:
+      - internal-network
+
+  zabbix_server:
+    image: zabbix/zabbix-server-mysql
+    container_name: zabbix_server
+    depends_on:
+      - zabbix_mariadb
+    restart: always
+    env_file: .env
+    environment:
+      - DB_SERVER_HOST=$DB_SERVER_HOST
+      - DB_SERVER_PORT=$DB_SERVER_PORT
+      - MYSQL_USER=$ZABBIX_DB_USER
+      - MYSQL_PASSWORD=$ZABBIX_DB_PASSWORD
+      - MYSQL_DATABASE=$ZABBIX_DB_NAME
+    volumes:
+      - ./data/zabbix_server/usr:/usr/lib/zabbix/
+      - ./data/zabbix_server/var:/var/lib/zabbix/
+    networks:
+      - internal-network
+      - expose-network
+
+  zabbix_webpanel:
+    image: zabbix/zabbix-web-nginx-mysql
+    container_name: zabbix_webpanel
+    depends_on:
+      - zabbix_server
+      - zabbix_mariadb
+    restart: always
+    ports:
+      - "81:80"
+      - "444:443"
+      - "8080:8080"
+    env_file: .env
+    environment:
+      - DB_SERVER_HOST=$DB_SERVER_HOST
+      - DB_SERVER_PORT=$DB_SERVER_PORT
+      - MYSQL_USER=$ZABBIX_DB_USER
+      - MYSQL_PASSWORD=$ZABBIX_DB_PASSWORD
+      - MYSQL_DATABASE=$ZABBIX_DB_NAME
+      - ZBX_SERVER_HOST=$ZBX_SERVER_HOST
+      - PHP_TZ=$PHP_TZ
+    volumes:
+      - ./data/zabbix_webpanel/ssl_zabbix:/etc/zabbix/web/certs/
+      - ./data/zabbix_webpanel/ssl_nginx:/etc/ssl/nginx/
+    networks:
+      - internal-network
+      - expose-network
+      
+  zabbix_grafana:
+    image: grafana/grafana
+    container_name: zabbix_grafana
+    depends_on:
+      - zabbix_server
+      - zabbix_mariadb
+    restart: always
+    ports:
+      - "3000:3000"
+    networks:
+      - internal-network
+      - expose-network
+
+
+networks:
+  internal-network:
+    driver: overlay
+  expose-network:
+    driver: bridge
